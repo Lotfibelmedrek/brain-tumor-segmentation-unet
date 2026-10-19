@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Tumor Segmentation Demo</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-2: #334155;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        header {
+            background: var(--surface);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--surface-2);
+        }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 0.25rem 0 0; color: var(--text-muted); }
+        main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--surface-2);
+        }
+        .card h2 { margin-top: 0; font-size: 1.1rem; }
+        .dropzone {
+            border: 2px dashed var(--surface-2);
+            border-radius: var(--radius);
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .dropzone input { display: none; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary {
+            background: var(--surface-2);
+        }
+        .btn-secondary:hover { background: #475569; }
+        .file-list {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .file-chip {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-chip button {
+            background: transparent;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .legend span { display: flex; align-items: center; gap: 0.35rem; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .dot.yellow { background: #facc15; }
+        .dot.green { background: #22c55e; }
+        .dot.red { background: #ef4444; }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .result-card {
+            background: var(--bg);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--surface-2);
+        }
+        .result-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+        }
+        .result-meta {
+            padding: 1rem;
+        }
+        .result-meta h3 {
+            margin: 0 0 0.5rem;
+            font-size: 0.95rem;
+            word-break: break-all;
+        }
+        .scores {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .score {
+            background: var(--surface);
+            padding: 0.35rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        .result-actions { display: flex; gap: 0.5rem; }
+        .result-actions a, .result-actions button {
+            flex: 1;
+            text-align: center;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+        .result-actions a { background: var(--primary); color: white; }
+        .select-btn {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+        .select-btn.selected { background: var(--success); }
+
+        .empty { text-align: center; color: var(--text-muted); padding: 3rem; }
+        .error { background: rgba(239, 68, 68, 0.1); color: #fca5a5; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .success { background: rgba(34, 197, 94, 0.1); color: #86efac; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .hidden { display: none !important; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        .tab {
+            background: var(--surface-2);
+            border: none;
+            color: var(--text);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .tab.active { background: var(--primary); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Brain Tumor Segmentation Demo</h1>
+        <p>U-Net model trained on BraTS 2020 axial MRI slices • 240×240×4 input, 3-class tumor mask output</p>
+    </header>
+
+    <main>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('single')">Single Image</button>
+            <button class="tab" onclick="switchTab('bulk')">Bulk Images</button>
+        </div>
+
+        <div id="single-panel" class="card">
+            <h2>Upload a BraTS .h5 slice</h2>
+            <p style="color: var(--text-muted); margin-top: 0;">File must contain an <code>image</code> dataset shaped (240, 240, 4): [T1, T1ce, T2, FLAIR]. Optional <code>mask</code> dataset enables Dice/IoU scoring.</p>
+            <div class="dropzone" id="single-dropzone" onclick="document.getElementById('single-input').click()">
+                <input type="file" id="single-input" accept=".h5" onchange="handleSingle(event)">
+                <p><strong>Click to upload</strong> or drag and drop a .h5 file here</p>
+            </div>
+            <div id="single-result"></div>
+        </div>
+
+        <div id="bulk-panel" class="card hidden">
+            <h2>Bulk upload</h2>
+            <p style="color: var(--text-muted); margin-top: 0;">Upload up to 50 .h5 slices at once. You can download individual results or a ZIP of selected results.</p>
+            <div class="dropzone" id="bulk-dropzone" onclick="document.getElementById('bulk-input').click()">
+                <input type="file" id="bulk-input" accept=".h5" multiple onchange="handleBulkSelect(event)">
+                <p><strong>Click to choose files</strong> or drag and drop .h5 files here</p>
+            </div>
+            <div class="file-list" id="bulk-file-list"></div>
+            <div style="margin-top: 1rem;">
+                <button class="btn" id="bulk-run-btn" onclick="runBulk()" disabled>
+                    <span class="spinner hidden" id="bulk-spinner"></span>
+                    <span id="bulk-btn-text">Run Segmentation</span>
+                </button>
+            </div>
+            <div id="bulk-status"></div>
+            <div class="toolbar" id="bulk-toolbar" style="display:none;">
+                <div class="legend">
+                    <span><span class="dot yellow"></span> Whole tumor (edema)</span>
+                    <span><span class="dot green"></span> Tumor core</span>
+                    <span><span class="dot red"></span> Enhancing tumor</span>
+                </div>
+                <button class="btn btn-secondary" onclick="downloadSelectedZip()">Download selected as ZIP</button>
+            </div>
+            <div class="results-grid" id="bulk-results"></div>
+        </div>
+    </main>
+
+    <script>
+        let bulkFiles = [];
+        let bulkResults = [];
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('single-panel').classList.toggle('hidden', tab !== 'single');
+            document.getElementById('bulk-panel').classList.toggle('hidden', tab !== 'bulk');
+        }
+
+        // Drag & drop helpers
+        ['single-dropzone', 'bulk-dropzone'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('dragover'); });
+            el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+            el.addEventListener('drop', e => {
+                e.preventDefault();
+                el.classList.remove('dragover');
+                const input = el.querySelector('input');
+                const dt = e.dataTransfer;
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change'));
+            });
+        });
+
+        async function handleSingle(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const container = document.getElementById('single-result');
+            container.innerHTML = '<div class="empty"><div class="spinner" style="margin: 0 auto 1rem;"></div>Running inference...</div>';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/predict', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Inference failed');
+                renderSingle(container, data);
+            } catch (err) {
+                container.innerHTML = `<div class="error">${err.message}</div>`;
+            }
+        }
+
+        function renderSingle(container, data) {
+            const scores = data.scores
+                ? `<div class="scores"><span class="score">Dice: ${data.scores.dice.toFixed(4)}</span><span class="score">IoU: ${data.scores.iou.toFixed(4)}</span></div>`
+                : '<p style="color: var(--text-muted);">No ground-truth mask in file.</p>';
+            container.innerHTML = `
+                <div class="success">Inference complete for <strong>${data.filename}</strong></div>
+                <div class="result-card" style="max-width: 900px;">
+                    <img src="${data.preview}" alt="Segmentation result">
+                    <div class="result-meta">
+                        <h3>${data.filename}</h3>
+                        ${scores}
+                        <div class="result-actions">
+                            <a href="/api/download/${data.id}" download>Download PNG</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleBulkSelect(event) {
+            const files = Array.from(event.target.files).filter(f => f.name.toLowerCase().endsWith('.h5'));
+            bulkFiles = files;
+            renderBulkFileList();
+        }
+
+        function renderBulkFileList() {
+            const list = document.getElementById('bulk-file-list');
+            const btn = document.getElementById('bulk-run-btn');
+            if (bulkFiles.length === 0) { list.innerHTML = ''; btn.disabled = true; return; }
+            list.innerHTML = bulkFiles.map((f, i) => `
+                <div class="file-chip">
+                    <span>${f.name}</span>
+                    <button onclick="removeBulkFile(${i})">&times;</button>
+                </div>
+            `).join('');
+            btn.disabled = false;
+        }
+
+        function removeBulkFile(index) {
+            bulkFiles.splice(index, 1);
+            document.getElementById('bulk-input').value = '';
+            renderBulkFileList();
+        }
+
+        async function runBulk() {
+            if (bulkFiles.length === 0) return;
+            const btn = document.getElementById('bulk-run-btn');
+            const spinner = document.getElementById('bulk-spinner');
+            const text = document.getElementById('bulk-btn-text');
+            const status = document.getElementById('bulk-status');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            text.textContent = 'Processing...';
+            status.innerHTML = '<div class="empty"><div class="spinner" style="margin: 0 auto 1rem;"></div>Running inference on batch...</div>';
+
+            const formData = new FormData();
+            bulkFiles.forEach(f => formData.append('files', f));
+
+            try {
+                const res = await fetch('/api/predict/bulk', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Bulk inference failed');
+                bulkResults = data.results || [];
+                renderBulkResults(data);
+            } catch (err) {
+                status.innerHTML = `<div class="error">${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                text.textContent = 'Run Segmentation';
+            }
+        }
+
+        function renderBulkResults(data) {
+            const status = document.getElementById('bulk-status');
+            const grid = document.getElementById('bulk-results');
+            const toolbar = document.getElementById('bulk-toolbar');
+
+            let msg = `<div class="success">Processed ${data.count} file(s).</div>`;
+            if (data.errors && data.errors.length) {
+                msg += `<div class="error">${data.errors.length} error(s):<br>${data.errors.map(e => `${e.filename}: ${e.error}`).join('<br>')}</div>`;
+            }
+            status.innerHTML = msg;
+
+            if (bulkResults.length === 0) { grid.innerHTML = ''; toolbar.style.display = 'none'; return; }
+            toolbar.style.display = 'flex';
+            grid.innerHTML = bulkResults.map(r => `
+                <div class="result-card">
+                    <img src="${r.preview}" alt="Result for ${r.filename}">
+                    <div class="result-meta">
+                        <h3 title="${r.filename}">${r.filename}</h3>
+                        ${r.scores
+                            ? `<div class="scores"><span class="score">Dice: ${r.scores.dice.toFixed(4)}</span><span class="score">IoU: ${r.scores.iou.toFixed(4)}</span></div>`
+                            : '<p style="color: var(--text-muted); font-size: 0.8rem;">No ground-truth mask.</p>'}
+                        <div class="result-actions">
+                            <a href="/api/download/${r.id}" download>PNG</a>
+                            <button class="select-btn" id="sel-${r.id}" onclick="toggleSelect('${r.id}')">Select</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleSelect(id) {
+            const btn = document.getElementById(`sel-${id}`);
+            btn.classList.toggle('selected');
+            btn.textContent = btn.classList.contains('selected') ? 'Selected' : 'Select';
+        }
+
+        async function downloadSelectedZip() {
+            const selected = bulkResults
+                .filter(r => document.getElementById(`sel-${r.id}`)?.classList.contains('selected'))
+                .map(r => r.id);
+            if (selected.length === 0) {
+                alert('Select at least one result to download.');
+                return;
+            }
+            const res = await fetch('/api/download/zip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selected })
+            });
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'segmentation_results.zip';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

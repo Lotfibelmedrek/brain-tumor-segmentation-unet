@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Secrets
+.env
+
+# Données lourdes (BraTS)
+data/
+BraTS2020*/
+*.nii
+*.nii.gz
+*.h5
+!samples/*.h5
+
+# Résultats générés par l'application
+static/results/
+
+# Node (si frontend)
+node_modules/
+.next/
+
+# Système / IDE
+.vscode/
+.DS_Store
+Thumbs.db
